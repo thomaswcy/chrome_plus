@@ -20,27 +20,45 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - name: checkout
+    - name: Checkout
       uses: actions/checkout@v2
       with:
         submodules: 'true'
 
-    - name: setup VC-LTL
+    - name: Setup VC-LTL
       if: matrix.os == 'windows-latest'
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: nuget install VC-LTL
 
-    - name: setup xmake
+    - name: Setup Xmake
       uses: xmake-io/github-action-setup-xmake@v1
 
-    - name: configure
+    - name: Configure
       run: xmake f -a ${{ matrix.arch }}
 
-    - name: build
+    - name: Build
       run: xmake
 
-    - name: upload
+    - name: Upload to Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.name }}
         path: build/release
+        
+      - name: Generate release tag
+        id: tag
+        run: |
+          echo "::set-output name=release_tag::$(date +"%Y.%m.%d")-${{ matrix.name }}"
+          echo "::set-output name=release_date::$(date +"%Y.%m.%d")"
+          touch release.txt
+          echo "Chrome++ for ${{ matrix.name }}" >> release.txt
+          
+      - name: Upload packages to release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ steps.tag.outputs.release_date }} Chrome++ for ${{ matrix.name }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          body_path: release.txt
+          files:  ${{ github.workspace }}/build/release/*
